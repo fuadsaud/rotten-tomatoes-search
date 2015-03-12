@@ -9,6 +9,7 @@
   "author": "Fuad Saud",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.12.2"
+    "express": "^4.12.2",
+    "mongodb": "^1.4.34"
   }
 }

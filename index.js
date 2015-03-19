@@ -3,15 +3,31 @@ const morgan  = require('morgan');
 const mongo   = require('mongodb').MongoClient;
 const _       = require('lodash');
 
-const mongoURL = 'mongodb://localhost/rottentomatoes';
-
 const app = express();
+
+var db;
 
 const rt = {
     normalizeDoc: function(doc) {
         return _.assign(doc, { poster: doc.posters.thumbnail });
-    }
+    },
+    logError: function(err) { console.log('[ERROR] ' + err) }
 }
+
+const mongoURL = 'mongodb://localhost/rottentomatoes';
+
+mongo.connect(mongoURL, function(err, database) {
+    if (err) {
+        rt.logError('Could not establish a connection to the mongodb server');
+
+        return;
+    }
+
+    db = database;
+
+    app.listen(7000);
+});
+
 
 app.use(morgan('dev'));
 
@@ -30,55 +46,57 @@ app.get('/movies', function(req, res) {
         return;
     }
 
-    mongo.connect(mongoURL, function(err, db) {
-        if (err) console.log(err);
+    const movies = db.collection('movies');
 
-        const movies = db.collection('movies');
+    movies.find({ title: new RegExp(query, 'i') }).toArray(function(err, docs) {
+        if (err) {
+            res.status(500).send('There was an error while talking to the mongodb server');
 
-        movies.find({ title: new RegExp(query, 'i') }).toArray(function(err, docs) {
-            res.json({ movies: _.map(docs, rt.normalizeDoc) });
+            return;
+        }
 
-            db.close();
-        });
+        res.json({ movies: _.map(docs, rt.normalizeDoc) });
+
+        db.close();
     });
 });
 
 app.get('/movies/:movie_id', function(req, res) {
     const movieId = req.params.movie_id;
 
-    mongo.connect(mongoURL, function(err, db) {
-        if (err) console.log(err);
+    const movies = db.collection('movies');
 
-        const movies = db.collection('movies');
+    movies.findOne({ id: movieId }, { limit: 1 }, function(err, doc) {
+        if (err) {
+            res.status(500).send('There was an error while talking to the mongodb server');
 
-        movies.findOne({ id: movieId }, { limit: 1 }, function(err, doc) {
-            if (doc)
-                res.json({ movie: rt.normalizeDoc(doc) });
-            else
-                res.status(404).send('Not found.');
+            return;
+        }
 
-            db.close();
-        });
+        if (doc)
+            res.json({ movie: rt.normalizeDoc(doc) });
+        else
+            res.status(404).send('Not found.');
     });
 });
 
 app.put('/movies/:movie_id', function(req, res) {
     const movieId = req.params.movie_id;
 
-    mongo.connect(mongoURL, function(err, db) {
-        if (err) console.log(err);
+    const movies = db.collection('movies');
 
-        const movies = db.collection('movies');
+    collection.update({ id: movieId }, { $set: { comment: 'abcdefg' } }, function(err, result) {
+        if (err) {
+            res.status(500).send('There was an error while talking to the mongodb server');
 
-        collection.update({ id: movieId }, { $set: { comment: 'abcdefg' } }, function(err, result) {
-            if (result.result.n === 1)
-                res.json({ movie: doc });
-            else if (result.result.n === 0)
-                res.status(404).send('Not found.');
+            return;
+        }
 
-            db.close();
-        });
+        if (result.result.n === 1)
+            res.json({ movie: doc });
+        else if (result.result.n === 0)
+            res.status(404).send('Not found.');
+
+        db.close();
     });
 });
-
-app.listen(7000);

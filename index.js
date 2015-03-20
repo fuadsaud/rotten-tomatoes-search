@@ -11,17 +11,24 @@ const rt = {
     normalizeDoc: function(doc) {
         return R.mergeAll([doc, doc.ratings, { poster: doc.posters.thumbnail }]);
     },
-    logError: function(err) { console.log('[ERROR] ' + err) }
+    logger: {
+        logError: function(msg) { this.log('[ERROR] ' + msg) },
+        logInfo:  function(msg) { this.log('[INFO] ' + msg) },
+        log: console.log
+    }
+
 }
 
 const mongoURL = 'mongodb://localhost/rottentomatoes';
 
 mongo.connect(mongoURL, function(err, database) {
     if (err) {
-        rt.logError('Could not establish a connection to the mongodb server');
+        rt.logger.logError('Could not establish a connection to the mongodb server.');
 
         return;
     }
+
+    rt.logger.logInfo('Connection to mongodb server was succesfully stablished.');
 
     db = database;
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const morgan  = require('morgan');
 const mongo   = require('mongodb').MongoClient;
-const _       = require('lodash');
+const R       = require('ramda');
 
 const app = express();
 
@@ -9,7 +9,7 @@ var db;
 
 const rt = {
     normalizeDoc: function(doc) {
-        return _.assign(doc, { poster: doc.posters.thumbnail });
+        return R.mergeAll([doc, doc.ratings, { poster: doc.posters.thumbnail }]);
     },
     logError: function(err) { console.log('[ERROR] ' + err) }
 }

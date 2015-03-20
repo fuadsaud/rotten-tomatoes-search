@@ -1,7 +1,10 @@
-const express = require('express');
-const morgan  = require('morgan');
-const mongo   = require('mongodb').MongoClient;
-const R       = require('ramda');
+const express     = require('express');
+const morgan      = require('morgan');
+const bodyParser  = require('body-parser')
+const cors        = require('cors');
+const MongoClient = require('mongodb').MongoClient;
+const ObjectId    = require('mongodb').ObjectId;
+const R           = require('ramda');
 
 const app = express();
 
@@ -9,19 +12,20 @@ var db;
 
 const rt = {
     normalizeDoc: function(doc) {
-        return R.mergeAll([doc, doc.ratings, { poster: doc.posters.thumbnail }]);
+        return R.mergeAll([ { comments: [] }, doc, doc.ratings, {
+            poster: doc.posters.thumbnail
+        }]);
     },
     logger: {
         logError: function(msg) { this.log('[ERROR] ' + msg) },
         logInfo:  function(msg) { this.log('[INFO] ' + msg) },
         log: console.log
     }
-
 }
 
 const mongoURL = 'mongodb://localhost/rottentomatoes';
 
-mongo.connect(mongoURL, function(err, database) {
+MongoClient.connect(mongoURL, function(err, database) {
     if (err) {
         rt.logger.logError('Could not establish a connection to the mongodb server.');
 
@@ -37,12 +41,8 @@ mongo.connect(mongoURL, function(err, database) {
 
 
 app.use(morgan('dev'));
-
-app.use(function(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "X-Requested-With");
-    next();
-});
+app.use(bodyParser.json());
+app.use(cors());
 
 app.get('/movies', function(req, res) {
     const query = req.query.q;
@@ -62,9 +62,7 @@ app.get('/movies', function(req, res) {
             return;
         }
 
-        res.json({ movies: _.map(docs, rt.normalizeDoc) });
-
-        db.close();
+        res.json({ movies: R.map(rt.normalizeDoc, docs) });
     });
 });
 
@@ -89,21 +87,26 @@ app.get('/movies/:movie_id', function(req, res) {
 
 app.put('/movies/:movie_id', function(req, res) {
     const movieId = req.params.movie_id;
+    const comments = req.body.movie.comments;
+
+    const commentsWithoutId = R.filter(function(c) { return !c.id }, comments);
+
+    const newComments = R.map(function(c) {
+        return R.merge(c, { id: new ObjectId() })
+    }, commentsWithoutId);
 
     const movies = db.collection('movies');
 
-    collection.update({ id: movieId }, { $set: { comment: 'abcdefg' } }, function(err, result) {
-        if (err) {
-            res.status(500).send('There was an error while talking to the mongodb server');
+    movies.findOneAndUpdate(
+        { id: movieId },
+        { $push: { comments: { $each: newComments } } },
+        { returnOriginal: false }, function(err, result) {
+            if (err) {
+                res.status(500).send('There was an error while talking to the mongodb server');
 
-            return;
-        }
+                return;
+            }
 
-        if (result.result.n === 1)
-            res.json({ movie: doc });
-        else if (result.result.n === 0)
-            res.status(404).send('Not found.');
-
-        db.close();
-    });
+            res.json({ movie: result.value });
+        });
 });

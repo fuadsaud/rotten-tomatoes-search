@@ -23,7 +23,7 @@ const rt = {
     }
 }
 
-const mongoURL = 'mongodb://localhost/rottentomatoes';
+const mongoURL = process.env.MONGOLAB_URI || 'mongodb://localhost/rottentomatoes';
 
 MongoClient.connect(mongoURL, function(err, database) {
     if (err) {
@@ -36,7 +36,7 @@ MongoClient.connect(mongoURL, function(err, database) {
 
     db = database;
 
-    app.listen(7000);
+    app.listen(process.env.PORT || 7000);
 });
 
 

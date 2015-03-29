@@ -11,7 +11,7 @@ const app = express();
 var db;
 
 const RT = {
-    normalizeDoc: function(doc) {
+    serializeMovie: function(doc) {
       return R.pipe(
         R.merge({ comments: [] }),
         R.dissoc('abridged_cast'),
@@ -66,7 +66,7 @@ app.get('/movies', function(req, res) {
             return;
         }
 
-        res.json({ movies: R.map(RT.normalizeDoc, docs) });
+        res.json({ movies: R.map(RT.serializeMovie, docs) });
     });
 });
 
@@ -83,7 +83,7 @@ app.get('/movies/:movie_id', function(req, res) {
         }
 
         if (doc)
-            res.json({ movie: RT.normalizeDoc(doc) });
+            res.json({ movie: RT.serializeMovie(doc) });
         else
             res.status(404).send('Not found.');
     });
@@ -112,7 +112,7 @@ app.put('/movies/:movie_id', function(req, res) {
             }
 
             if (result.value)
-              res.json({ movie: result.value });
+              res.json({ movie: RT.serializeMovie(result.value) });
             else
               res.status(404).send('Not found.')
         });

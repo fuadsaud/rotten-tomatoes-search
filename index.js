@@ -10,11 +10,15 @@ const app = express();
 
 var db;
 
-const rt = {
+const RT = {
     normalizeDoc: function(doc) {
-        return R.mergeAll([ { comments: [] }, doc, doc.ratings, {
-            poster: doc.posters.thumbnail
-        }]);
+      return R.pipe(
+        R.merge({ comments: [] }),
+        R.dissoc('abridged_cast'),
+        R.dissoc('ratings'),
+        R.dissoc('posters'),
+        R.merge(doc.ratings),
+        R.merge({ poster: doc.posters.thumbnail }))(doc)
     },
     logger: {
         logError: function(msg) { this.log('[ERROR] ' + msg) },
@@ -27,12 +31,12 @@ const mongoURL = process.env.MONGOLAB_URI || 'mongodb://localhost/rottentomatoes
 
 MongoClient.connect(mongoURL, function(err, database) {
     if (err) {
-        rt.logger.logError('Could not establish a connection to the mongodb server.');
+        RT.logger.logError('Could not establish a connection to the mongodb server.');
 
         return;
     }
 
-    rt.logger.logInfo('Connection to mongodb server was succesfully stablished.');
+    RT.logger.logInfo('Connection to mongodb server was succesfully stablished.');
 
     db = database;
 
@@ -55,14 +59,14 @@ app.get('/movies', function(req, res) {
 
     const movies = db.collection('movies');
 
-    movies.find({ title: new RegExp(query, 'i') }).toArray(function(err, docs) {
+    movies.find({ title: new RegExp("\\b" + query, 'i') }).toArray(function(err, docs) {
         if (err) {
             res.status(500).send('There was an error while talking to the mongodb server');
 
             return;
         }
 
-        res.json({ movies: R.map(rt.normalizeDoc, docs) });
+        res.json({ movies: R.map(RT.normalizeDoc, docs) });
     });
 });
 
@@ -79,7 +83,7 @@ app.get('/movies/:movie_id', function(req, res) {
         }
 
         if (doc)
-            res.json({ movie: rt.normalizeDoc(doc) });
+            res.json({ movie: RT.normalizeDoc(doc) });
         else
             res.status(404).send('Not found.');
     });
@@ -87,7 +91,7 @@ app.get('/movies/:movie_id', function(req, res) {
 
 app.put('/movies/:movie_id', function(req, res) {
     const movieId = req.params.movie_id;
-    const comments = req.body.movie.comments;
+    const comments = req.body.movie.comments || [];
 
     const commentsWithoutId = R.filter(function(c) { return !c.id }, comments);
 
@@ -107,6 +111,9 @@ app.put('/movies/:movie_id', function(req, res) {
                 return;
             }
 
-            res.json({ movie: result.value });
+            if (result.value)
+              res.json({ movie: result.value });
+            else
+              res.status(404).send('Not found.')
         });
 });

@@ -1,4 +1,4 @@
-# Rotten Tomatoes Search Client
+# Rotten Tomatoes Search Server
 
 HTTP JSON API for to return movie data from [Rotten Tomatoes](//rottentomatoes.com).
 

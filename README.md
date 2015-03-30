@@ -12,7 +12,10 @@ To install all npm package dependencies:
 npm install
 ```
 
-Make sure the MongoDB server is running before starting the server.
+Make sure the MongoDB server is running before starting the server. You can
+specify the MongoDB connection URL through the `MONGO_URI` enviroment variable.
+If not specified, the default URI (mongodb://localhost/rottentomatoes) will be
+used.
 
 To start the server:
 

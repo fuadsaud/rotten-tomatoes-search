@@ -1,14 +1,14 @@
-const express     = require('express');
-const morgan      = require('morgan');
+const express     = require('express')
+const morgan      = require('morgan')
 const bodyParser  = require('body-parser')
-const cors        = require('cors');
-const MongoClient = require('mongodb').MongoClient;
-const ObjectId    = require('mongodb').ObjectId;
-const R           = require('ramda');
+const cors        = require('cors')
+const MongoClient = require('mongodb').MongoClient
+const ObjectId    = require('mongodb').ObjectId
+const R           = require('ramda')
 
-const app = express();
+const app = express()
 
-var db;
+var db
 
 const RT = {
     serializeMovie: function(doc) {
@@ -27,93 +27,93 @@ const RT = {
     }
 }
 
-const mongoURL = process.env.MONGOLAB_URI || 'mongodb://localhost/rottentomatoes';
+const mongoURL = process.env.MONGOLAB_URI || 'mongodb://localhost/rottentomatoes'
 
 MongoClient.connect(mongoURL, function(err, database) {
     if (err) {
-        RT.logger.logError('Could not establish a connection to the mongodb server.');
+        RT.logger.logError('Could not establish a connection to the mongodb server.')
 
-        return;
+        return
     }
 
-    RT.logger.logInfo('Connection to mongodb server was succesfully stablished.');
+    RT.logger.logInfo('Connection to mongodb server was succesfully stablished.')
 
-    db = database;
+    db = database
 
-    app.listen(process.env.PORT || 7000);
-});
+    app.listen(process.env.PORT || 7000)
+})
 
 
-app.use(morgan('dev'));
-app.use(bodyParser.json());
-app.use(cors());
+app.use(morgan('dev'))
+app.use(bodyParser.json())
+app.use(cors())
 
 app.get('/movies', function(req, res) {
-    const query = req.query.q;
+    const query = req.query.q
 
     if (!query) {
-        res.json({ movies: [] });
+        res.json({ movies: [] })
 
-        return;
+        return
     }
 
-    const movies = db.collection('movies');
+    const movies = db.collection('movies')
 
     movies.find({ title: new RegExp("\\b" + query, 'i') }).toArray(function(err, docs) {
         if (err) {
-            res.status(500).send('There was an error while talking to the mongodb server');
+            res.status(500).send('There was an error while talking to the mongodb server')
 
-            return;
+            return
         }
 
-        res.json({ movies: R.map(RT.serializeMovie, docs) });
-    });
-});
+        res.json({ movies: R.map(RT.serializeMovie, docs) })
+    })
+})
 
 app.get('/movies/:movie_id', function(req, res) {
-    const movieId = req.params.movie_id;
+    const movieId = req.params.movie_id
 
-    const movies = db.collection('movies');
+    const movies = db.collection('movies')
 
     movies.findOne({ id: movieId }, { limit: 1 }, function(err, doc) {
         if (err) {
-            res.status(500).send('There was an error while talking to the mongodb server');
+            res.status(500).send('There was an error while talking to the mongodb server')
 
-            return;
+            return
         }
 
         if (doc)
-            res.json({ movie: RT.serializeMovie(doc) });
+            res.json({ movie: RT.serializeMovie(doc) })
         else
-            res.status(404).send('Not found.');
-    });
-});
+            res.status(404).send('Not found.')
+    })
+})
 
 app.put('/movies/:movie_id', function(req, res) {
-    const movieId = req.params.movie_id;
-    const comments = req.body.movie.comments || [];
+    const movieId = req.params.movie_id
+    const comments = req.body.movie.comments || []
 
-    const commentsWithoutId = R.filter(function(c) { return !c.id }, comments);
+    const commentsWithoutId = R.filter(function(c) { return !c.id }, comments)
 
     const newComments = R.map(function(c) {
         return R.merge(c, { id: new ObjectId() })
-    }, commentsWithoutId);
+    }, commentsWithoutId)
 
-    const movies = db.collection('movies');
+    const movies = db.collection('movies')
 
     movies.findOneAndUpdate(
         { id: movieId },
         { $push: { comments: { $each: newComments } } },
         { returnOriginal: false }, function(err, result) {
             if (err) {
-                res.status(500).send('There was an error while talking to the mongodb server');
+                res.status(500).send('There was an error while talking to the mongodb server')
 
-                return;
+                return
             }
 
             if (result.value)
-              res.json({ movie: RT.serializeMovie(result.value) });
+              res.json({ movie: RT.serializeMovie(result.value) })
             else
               res.status(404).send('Not found.')
-        });
-});
+        })
+})

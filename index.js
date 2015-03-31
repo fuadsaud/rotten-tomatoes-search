@@ -40,7 +40,11 @@ MongoClient.connect(mongoURL, function(err, database) {
 
     db = database
 
-    app.listen(process.env.PORT || 7000)
+    const port = process.env.PORT || 7000
+
+    RT.logger.logInfo('Starting up HTTP server listening on port ' + port)
+
+    app.listen(port)
 })
 
 

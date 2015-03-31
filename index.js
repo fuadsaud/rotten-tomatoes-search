@@ -20,31 +20,41 @@ const RT = {
         R.merge(doc.ratings),
         R.merge({ poster: doc.posters.thumbnail }))(doc)
     },
+    searchRegExp: function (query) {
+      const matches = query.replace(/\W+/, ' ').split(' ')
+
+      const keywords = R.reduce(function (keywords, match) {
+        return keywords + "|" + match
+
+      }, matches[0], R.tail(matches))
+
+      return new RegExp("\\b" + keywords, 'i')
+    },
     logger: {
-        logError: function (msg) { this.log('[ERROR] ' + msg) },
-        logInfo:  function (msg) { this.log('[INFO] ' + msg) },
-        log: console.log
+      logError: function (msg) { this.log('[ERROR] ' + msg) },
+      logInfo:  function (msg) { this.log('[INFO] ' + msg) },
+      log: console.log
     }
 }
 
 const mongoURL = process.env.MONGOLAB_URI || 'mongodb://localhost/rottentomatoes'
 
 MongoClient.connect(mongoURL, function (err, database) {
-    if (err) {
-        RT.logger.logError('Could not establish a connection to the mongodb server.')
+  if (err) {
+    RT.logger.logError('Could not establish a connection to the mongodb server.')
 
-        return
-    }
+    return
+  }
 
-    RT.logger.logInfo('Connection to mongodb server was succesfully stablished.')
+  RT.logger.logInfo('Connection to mongodb server was succesfully stablished.')
 
-    db = database
+  db = database
 
-    const port = process.env.PORT || 7000
+  const port = process.env.PORT || 7000
 
-    RT.logger.logInfo('Starting up HTTP server listening on port ' + port)
+  RT.logger.logInfo('Starting up HTTP server listening on port ' + port)
 
-    app.listen(port)
+  app.listen(port)
 })
 
 
@@ -53,71 +63,71 @@ app.use(bodyParser.json())
 app.use(cors())
 
 app.get('/movies', function (req, res) {
-    const query = req.query.q
+  const query = req.query.q
 
-    if (!query) {
-        res.json({ movies: [] })
+  if (!query) {
+    res.json({ movies: [] })
 
-        return
+    return
+  }
+
+  const movies = db.collection('movies')
+
+  movies.find({ title: RT.searchRegExp(query) }).toArray(function (err, docs) {
+    if (err) {
+      res.status(500).send('There was an error while talking to the mongodb server')
+
+      return
     }
 
-    const movies = db.collection('movies')
-
-    movies.find({ title: new RegExp("\\b" + query, 'i') }).toArray(function (err, docs) {
-        if (err) {
-            res.status(500).send('There was an error while talking to the mongodb server')
-
-            return
-        }
-
-        res.json({ movies: R.map(RT.serializeMovie, docs) })
-    })
+    res.json({ movies: R.map(RT.serializeMovie, docs) })
+  })
 })
 
 app.get('/movies/:movie_id', function (req, res) {
-    const movieId = req.params.movie_id
+  const movieId = req.params.movie_id
 
-    const movies = db.collection('movies')
+  const movies = db.collection('movies')
 
-    movies.findOne({ id: movieId }, { limit: 1 }, function (err, doc) {
-        if (err) {
-            res.status(500).send('There was an error while talking to the mongodb server')
+  movies.findOne({ id: movieId }, { limit: 1 }, function (err, doc) {
+    if (err) {
+      res.status(500).send('There was an error while talking to the mongodb server')
 
-            return
-        }
+      return
+    }
 
-        if (doc)
-            res.json({ movie: RT.serializeMovie(doc) })
-        else
-            res.status(404).send('Not found.')
-    })
+    if (doc)
+      res.json({ movie: RT.serializeMovie(doc) })
+    else
+      res.status(404).send('Not found.')
+  })
 })
 
 app.put('/movies/:movie_id', function (req, res) {
-    const movieId = req.params.movie_id
-    const comments = req.body.movie.comments || []
+  const movieId = req.params.movie_id
+  const comments = req.body.movie.comments || []
 
-    const commentsWithoutId = R.filter(function (c) { return !c.id }, comments)
+  const commentsWithoutId = R.filter(function (c) { return !c.id }, comments)
 
-    const newComments = R.map(function (c) {
-        return R.merge(c, { id: new ObjectId() })
-    }, commentsWithoutId)
+  const newComments = R.map(function (c) {
+    return R.merge(c, { id: new ObjectId() })
+  }, commentsWithoutId)
 
-    const movies = db.collection('movies')
+  const movies = db.collection('movies')
 
-    movies.findOneAndUpdate(
-        { id: movieId },
-        { $push: { comments: { $each: newComments } } },
-        { returnOriginal: false }, function (err, result) {
-            if (err) {
-                res.status(500).send('There was an error while talking to the mongodb server')
+  movies.findOneAndUpdate(
+    { id: movieId },
+    { $push: { comments: { $each: newComments } } },
+    { returnOriginal: false }, function (err, result) {
+      if (err) {
+        res.status(500).send('There was an error while talking to the mongodb server')
 
-                return
-            }
+        return
+      }
 
-            if (result.value)
-              res.json({ movie: RT.serializeMovie(result.value) })
-            else
-              res.status(404).send('Not found.')
-        })
+      if (result.value)
+        res.json({ movie: RT.serializeMovie(result.value) })
+      else
+        res.status(404).send('Not found.')
+    })
 })

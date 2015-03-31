@@ -11,7 +11,7 @@ const app = express()
 var db
 
 const RT = {
-    serializeMovie: function(doc) {
+    serializeMovie: function (doc) {
       return R.pipe(
         R.merge({ comments: [] }),
         R.dissoc('abridged_cast'),
@@ -21,15 +21,15 @@ const RT = {
         R.merge({ poster: doc.posters.thumbnail }))(doc)
     },
     logger: {
-        logError: function(msg) { this.log('[ERROR] ' + msg) },
-        logInfo:  function(msg) { this.log('[INFO] ' + msg) },
+        logError: function (msg) { this.log('[ERROR] ' + msg) },
+        logInfo:  function (msg) { this.log('[INFO] ' + msg) },
         log: console.log
     }
 }
 
 const mongoURL = process.env.MONGOLAB_URI || 'mongodb://localhost/rottentomatoes'
 
-MongoClient.connect(mongoURL, function(err, database) {
+MongoClient.connect(mongoURL, function (err, database) {
     if (err) {
         RT.logger.logError('Could not establish a connection to the mongodb server.')
 
@@ -52,7 +52,7 @@ app.use(morgan('dev'))
 app.use(bodyParser.json())
 app.use(cors())
 
-app.get('/movies', function(req, res) {
+app.get('/movies', function (req, res) {
     const query = req.query.q
 
     if (!query) {
@@ -63,7 +63,7 @@ app.get('/movies', function(req, res) {
 
     const movies = db.collection('movies')
 
-    movies.find({ title: new RegExp("\\b" + query, 'i') }).toArray(function(err, docs) {
+    movies.find({ title: new RegExp("\\b" + query, 'i') }).toArray(function (err, docs) {
         if (err) {
             res.status(500).send('There was an error while talking to the mongodb server')
 
@@ -74,12 +74,12 @@ app.get('/movies', function(req, res) {
     })
 })
 
-app.get('/movies/:movie_id', function(req, res) {
+app.get('/movies/:movie_id', function (req, res) {
     const movieId = req.params.movie_id
 
     const movies = db.collection('movies')
 
-    movies.findOne({ id: movieId }, { limit: 1 }, function(err, doc) {
+    movies.findOne({ id: movieId }, { limit: 1 }, function (err, doc) {
         if (err) {
             res.status(500).send('There was an error while talking to the mongodb server')
 
@@ -93,13 +93,13 @@ app.get('/movies/:movie_id', function(req, res) {
     })
 })
 
-app.put('/movies/:movie_id', function(req, res) {
+app.put('/movies/:movie_id', function (req, res) {
     const movieId = req.params.movie_id
     const comments = req.body.movie.comments || []
 
-    const commentsWithoutId = R.filter(function(c) { return !c.id }, comments)
+    const commentsWithoutId = R.filter(function (c) { return !c.id }, comments)
 
-    const newComments = R.map(function(c) {
+    const newComments = R.map(function (c) {
         return R.merge(c, { id: new ObjectId() })
     }, commentsWithoutId)
 
@@ -108,7 +108,7 @@ app.put('/movies/:movie_id', function(req, res) {
     movies.findOneAndUpdate(
         { id: movieId },
         { $push: { comments: { $each: newComments } } },
-        { returnOriginal: false }, function(err, result) {
+        { returnOriginal: false }, function (err, result) {
             if (err) {
                 res.status(500).send('There was an error while talking to the mongodb server')
 
